@@ -3,8 +3,8 @@
 #include <glm/glm.hpp>
 
 #include <string>
-#include <list>
 #include <random>
+#include <array>
 
 struct Connection;
 
@@ -12,76 +12,49 @@ struct Connection;
 
 //Currently set up for a "client sends controls" / "server sends whole state" situation.
 
-enum class Message : uint8_t {
-	C2S_Controls = 1, //Greg!
-	S2C_State = 's',
-	//...
+enum Message : uint8_t {
+	C2S_KEY,
+	S2C_KEY,
+	S2C_STATUS,
+	S2C_PASSWORD
 };
 
-//used to represent a control input:
-struct Button {
-	uint8_t downs = 0; //times the button has been pressed
-	bool pressed = false; //is the button pressed now
+enum PlayerStatus : uint8_t {
+	GUESSING,
+	SOLVED,
+	ABSENT
 };
+
+std::array<std::string, 20> passwords = ["APPLE", "DOG", "COMPUTER", "HOUSE", "JUNGLE",
+	"SHADOW", "BRIDGE", "FRIEND", "MONSTER", "NEEDLE",
+	"WATCH", "SHELL", "GHOST", "DONUT", "LANTERN",
+	"MOON", "PLANE", "BOOK", "METAL", "OVEN"];
 
 //state of one player in the game:
 struct Player {
-	//player inputs (sent from client):
-	struct Controls {
-		Button left, right, up, down, jump;
-
-		void send_controls_message(Connection *connection) const;
-
-		//returns 'false' if no message or not a controls message,
-		//returns 'true' if read a controls message,
-		//throws on malformed controls message
-		bool recv_controls_message(Connection *connection);
-	} controls;
-
-	//player state (sent from server):
-	glm::vec2 position = glm::vec2(0.0f, 0.0f);
-	glm::vec2 velocity = glm::vec2(0.0f, 0.0f);
-
-	glm::vec3 color = glm::vec3(1.0f, 1.0f, 1.0f);
-	std::string name = "";
+	PlayerStatus status;
+	std::array<char, 26> scramble;
+	uint8_t number;
+	Connection *connection;
+	std::string password;
 };
 
 struct Game {
-	std::list< Player > players; //(using list so they can have stable addresses)
-	Player *spawn_player(); //add player the end of the players list (may also, e.g., play some spawn anim)
-	void remove_player(Player *); //remove player from game (may also, e.g., play some despawn anim)
-
-	std::mt19937 mt; //used for spawning players
-	uint32_t next_player_number = 1; //used for naming players
+	std::array<Player, 8> players;
+	uint8_t player_count;
+	uint8_t spawn_player(); //add player the end of the players list (may also, e.g., play some spawn anim)
+	void remove_player(uint8_t player_number); //remove player from game (may also, e.g., play some despawn anim)
 
 	Game();
-
-	//state update function:
-	void update(float elapsed);
+	void init();
 
 	//constants:
 	//the update rate on the server:
 	inline static constexpr float Tick = 1.0f / 30.0f;
 
-	//arena size:
-	inline static constexpr glm::vec2 ArenaMin = glm::vec2(-0.75f, -1.0f);
-	inline static constexpr glm::vec2 ArenaMax = glm::vec2( 0.75f,  1.0f);
-
-	//player constants:
-	inline static constexpr float PlayerRadius = 0.06f;
-	inline static constexpr float PlayerSpeed = 2.0f;
-	inline static constexpr float PlayerAccelHalflife = 0.25f;
-	
-
 	//---- communication helpers ----
-
-	//used by client:
-	//set game state from data in connection buffer
-	// (return true if data was read)
-	bool recv_state_message(Connection *connection);
-
-	//used by server:
-	//send game state.
-	//  Will move "connection_player" to the front of the front of the sent list.
-	void send_state_message(Connection *connection, Player *connection_player = nullptr) const;
+	void send_password_message(uint8_t player_number) const;
+	void send_status_message(PlayerStatus status, uint8_t player_number) const; 
+	void send_key_message(char key, uint8_t player_number) const;
+	bool recv_key_message(uint8_t player_number);
 };

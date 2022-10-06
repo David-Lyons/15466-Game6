@@ -10,6 +10,10 @@ dist/README-freetype.txt
 dist/README-harfbuzz.txt
 dist/game.ilk
 dist/game.pdb
+dist/client.ilk
+dist/client.pdb
+dist/server.ilk
+dist/server.pdb
 dist/SDL2.dll
 dist/game
 dist/game.exe

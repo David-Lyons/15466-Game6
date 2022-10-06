@@ -12,6 +12,15 @@
 #include <array>
 
 PlayMode::PlayMode(Client &client_) : client(client_) {
+	for (uint8_t i = 0; i < 8; i++) {
+		players[i].solved = false;
+		players[i].exists = false;
+		players[i].last_key = ' ';
+	}
+	key_ready = false;
+	game_over = false;
+	found_password = false;
+	my_password = "";
 }
 
 PlayMode::~PlayMode() {
@@ -20,44 +29,83 @@ PlayMode::~PlayMode() {
 bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 
 	if (evt.type == SDL_KEYDOWN) {
-		if (evt.key.repeat) {
-			//ignore repeats
-		} else if (evt.key.keysym.sym == SDLK_a) {
-			controls.left.downs += 1;
-			controls.left.pressed = true;
-			return true;
-		} else if (evt.key.keysym.sym == SDLK_d) {
-			controls.right.downs += 1;
-			controls.right.pressed = true;
-			return true;
-		} else if (evt.key.keysym.sym == SDLK_w) {
-			controls.up.downs += 1;
-			controls.up.pressed = true;
-			return true;
-		} else if (evt.key.keysym.sym == SDLK_s) {
-			controls.down.downs += 1;
-			controls.down.pressed = true;
-			return true;
-		} else if (evt.key.keysym.sym == SDLK_SPACE) {
-			controls.jump.downs += 1;
-			controls.jump.pressed = true;
-			return true;
-		}
-	} else if (evt.type == SDL_KEYUP) {
 		if (evt.key.keysym.sym == SDLK_a) {
-			controls.left.pressed = false;
+			my_key = 'A';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_b) {
+			my_key = 'B';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_c) {
+			my_key = 'C';
 			return true;
 		} else if (evt.key.keysym.sym == SDLK_d) {
-			controls.right.pressed = false;
+			my_key = 'D';
 			return true;
-		} else if (evt.key.keysym.sym == SDLK_w) {
-			controls.up.pressed = false;
+		} else if (evt.key.keysym.sym == SDLK_e) {
+			my_key = 'E';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_f) {
+			my_key = 'F';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_g) {
+			my_key = 'G';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_h) {
+			my_key = 'H';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_i) {
+			my_key = 'I';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_j) {
+			my_key = 'J';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_k) {
+			my_key = 'K';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_l) {
+			my_key = 'L';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_m) {
+			my_key = 'M';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_n) {
+			my_key = 'N';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_o) {
+			my_key = 'O';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_p) {
+			my_key = 'P';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_q) {
+			my_key = 'Q';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_r) {
+			my_key = 'R';
 			return true;
 		} else if (evt.key.keysym.sym == SDLK_s) {
-			controls.down.pressed = false;
+			my_key = 'S';
 			return true;
-		} else if (evt.key.keysym.sym == SDLK_SPACE) {
-			controls.jump.pressed = false;
+		} else if (evt.key.keysym.sym == SDLK_t) {
+			my_key = 'T';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_u) {
+			my_key = 'U';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_v) {
+			my_key = 'V';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_w) {
+			my_key = 'W';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_x) {
+			my_key = 'X';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_y) {
+			my_key = 'Y';
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_z) {
+			my_key = 'Z';
 			return true;
 		}
 	}
@@ -65,17 +113,59 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	return false;
 }
 
+bool PlayMode::check_for_password(Connection* c) {
+	assert(c);
+	auto& connection = *c;
+	auto& buffer = connection.recv_buffer;
+	if (buffer.size() < 2) return false;
+	if (buffer[0] != uint8_t(Message::S2C_PASSWORD)) return false;
+	uint8_t size = buffer[1];
+	if (buffer.size() < 2 + size) return false;
+	for (uint8_t i = 2; i < 2 + size; i++) {
+		my_password += buffer[i];
+	}
+	buffer.erase(buffer.begin(), buffer.begin() + 2 + size);
+	return true;
+}
+
+bool PlayMode::check_for_message(Connection *c) {
+	assert(c);
+	auto& connection = *c;
+	auto& buffer = connection.recv_buffer;
+	if (buffer.size() < 3) return false;
+	if (buffer[0] == uint8_t(Message::S2C_KEY)) {
+		players[buffer[1] - 1].last_key = buffer[2];
+		buffer.erase(buffer.begin(), buffer.begin() + 3);
+		return true;
+	} else if (buffer[0] == uint8_t(Message::S2C_STATUS)) {
+		if (buffer[2] == PlayerStatus::ABSENT) {
+			players[buffer[1] - 1].exists = false;
+		} else if (buffer[2] == PlayerStatus::GUESSING) {
+			players[buffer[1] - 1].exists = true;
+			players[buffer[1] - 1].solved = false;
+		} else if (buffer[2] == PlayerStatus::SOLVED) {
+			players[buffer[1] - 1].exists = true;
+			players[buffer[1] - 1].solved = true;
+		}
+		buffer.erase(buffer.begin(), buffer.begin() + 3);
+		for (uint8_t i = 0; i < 8; i++) {
+			game_over = true;
+			if (players[i].exists && !players[i].solved) {
+				game_over = false;
+			}
+			if (game_over) printf("We have a winner!");
+		}
+		return true;
+	}
+	return false;
+}
+
 void PlayMode::update(float elapsed) {
-
-	//queue data for sending to server:
-	controls.send_controls_message(&client.connection);
-
-	//reset button press counters:
-	controls.left.downs = 0;
-	controls.right.downs = 0;
-	controls.up.downs = 0;
-	controls.down.downs = 0;
-	controls.jump.downs = 0;
+	if (key_ready) {
+		client.connection.send(Message::C2S_KEY);
+		client.connection.send(my_key);
+		key_ready = false;
+	}
 
 	//send/receive data:
 	client.poll([this](Connection *c, Connection::Event event){
@@ -84,13 +174,15 @@ void PlayMode::update(float elapsed) {
 		} else if (event == Connection::OnClose) {
 			std::cout << "[" << c->socket << "] closed (!)" << std::endl;
 			throw std::runtime_error("Lost connection to server!");
-		} else { assert(event == Connection::OnRecv);
+		} else { 
+			assert(event == Connection::OnRecv);
 			//std::cout << "[" << c->socket << "] recv'd data. Current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
 			bool handled_message;
 			try {
 				do {
 					handled_message = false;
-					if (game.recv_state_message(c)) handled_message = true;
+					if (check_for_password(c)) handled_message = true;
+					if (check_for_message(c)) handled_message = true;
 				} while (handled_message);
 			} catch (std::exception const &e) {
 				std::cerr << "[" << c->socket << "] malformed message from server: " << e.what() << std::endl;
@@ -147,35 +239,12 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 		};
 
-		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-		lines.draw(glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
+		draw_text(glm::vec2(drawable_size.x / 3, drawable_size.y - (drawable_size.y / 8)), my_password, 0.1f);
 
-		for (auto const &player : game.players) {
-			glm::u8vec4 col = glm::u8vec4(player.color.x*255, player.color.y*255, player.color.z*255, 0xff);
-			if (&player == &game.players.front()) {
-				//mark current player (which server sends first):
-				lines.draw(
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f,-0.5f), 0.0f),
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f, 0.5f), 0.0f),
-					col
-				);
-				lines.draw(
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f, 0.5f), 0.0f),
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f,-0.5f), 0.0f),
-					col
-				);
+		for (uint8_t i = 0; i < 8; i++) {
+			if (players[i].exists) {
+				draw_text(glm::vec2(drawable_size.x / 10.0f, drawable_size.y / 16.0f + (drawable_size.y / 8.0f) * i), "Player " + std::to_string(i + 1), 0.1f);
 			}
-			for (uint32_t a = 0; a < circle.size(); ++a) {
-				lines.draw(
-					glm::vec3(player.position + Game::PlayerRadius * circle[a], 0.0f),
-					glm::vec3(player.position + Game::PlayerRadius * circle[(a+1)%circle.size()], 0.0f),
-					col
-				);
-			}
-
-			draw_text(player.position + glm::vec2(0.0f, -0.1f + Game::PlayerRadius), player.name, 0.09f);
 		}
 	}
 	GL_ERRORS();

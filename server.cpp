@@ -47,6 +47,7 @@ int main(int argc, char **argv) {
 	std::unordered_map< Connection *, Player * > connection_to_player;
 	//keep track of game state:
 	Game game;
+	game.init();
 
 	while (true) {
 		static auto next_tick = std::chrono::steady_clock::now() + std::chrono::duration< double >(Game::Tick);
@@ -61,41 +62,39 @@ int main(int argc, char **argv) {
 
 			//helper used on client close (due to quit) and server close (due to error):
 			auto remove_connection = [&](Connection *c) {
-				auto f = connection_to_player.find(c);
-				assert(f != connection_to_player.end());
-				game.remove_player(f->second);
-				connection_to_player.erase(f);
+				Player *player = connection_to_player[c];
+				assert(player != nullptr);
+				game.remove_player(player->number);
+				connection_to_player[c] = nullptr;
 			};
 
-			server.poll([&](Connection *c, Connection::Event evt){
+			server.poll([&](Connection* c, Connection::Event evt) {
 				if (evt == Connection::OnOpen) {
 					//client connected:
 
-					//create some player info for them:
-					connection_to_player.emplace(c, game.spawn_player());
+					uint8_t player = game.spawn_player();
+					connection_to_player[c] = &game.players[player - 1];
 
 				} else if (evt == Connection::OnClose) {
 					//client disconnected:
 
 					remove_connection(c);
 
-				} else { assert(evt == Connection::OnRecv);
+				} else { 
+					assert(evt == Connection::OnRecv);
 					//got data from client:
-					//std::cout << "current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
 
 					//look up in players list:
-					auto f = connection_to_player.find(c);
-					assert(f != connection_to_player.end());
-					Player &player = *f->second;
+					Player* player = connection_to_player[c];
+					assert(player != nullptr);
 
 					//handle messages from client:
 					try {
-						bool handled_message;
+						bool handled_message = false;
 						do {
-							handled_message = false;
-							if (player.controls.recv_controls_message(c)) handled_message = true;
+							if (game.recv_key_message(player->number)) handled_message = true;
 							//TODO: extend for more message types as needed
-						} while (handled_message);
+						} while (!handled_message);
 					} catch (std::exception const &e) {
 						std::cout << "Disconnecting client:" << e.what() << std::endl;
 						c->close();
@@ -104,15 +103,6 @@ int main(int argc, char **argv) {
 				}
 			}, remain);
 		}
-
-		//update current game state
-		game.update(Game::Tick);
-
-		//send updated game state to all clients
-		for (auto &[c, player] : connection_to_player) {
-			game.send_state_message(c, player);
-		}
-
 	}
 
 
