@@ -16,7 +16,7 @@ struct PlayMode : Mode {
 	virtual void update(float elapsed) override;
 	virtual void draw(glm::uvec2 const &drawable_size) override; 
 	bool check_for_message(Connection* c); 
-	bool check_for_message(Connection* c);
+	bool check_for_password(Connection* c);
 
 	//----- game state -----
 

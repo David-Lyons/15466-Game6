@@ -25,11 +25,6 @@ enum PlayerStatus : uint8_t {
 	ABSENT
 };
 
-std::array<std::string, 20> passwords = ["APPLE", "DOG", "COMPUTER", "HOUSE", "JUNGLE",
-	"SHADOW", "BRIDGE", "FRIEND", "MONSTER", "NEEDLE",
-	"WATCH", "SHELL", "GHOST", "DONUT", "LANTERN",
-	"MOON", "PLANE", "BOOK", "METAL", "OVEN"];
-
 //state of one player in the game:
 struct Player {
 	PlayerStatus status;
@@ -37,13 +32,16 @@ struct Player {
 	uint8_t number;
 	Connection *connection;
 	std::string password;
+	uint8_t progress;
 };
 
 struct Game {
-	std::array<Player, 8> players;
+	std::array<struct Player, 8> players;
 	uint8_t player_count;
-	uint8_t spawn_player(); //add player the end of the players list (may also, e.g., play some spawn anim)
+	uint8_t spawn_player(Connection *c); //add player the end of the players list (may also, e.g., play some spawn anim)
 	void remove_player(uint8_t player_number); //remove player from game (may also, e.g., play some despawn anim)
+
+	std::array<std::string, 20> passwords;
 
 	Game();
 	void init();
@@ -54,7 +52,7 @@ struct Game {
 
 	//---- communication helpers ----
 	void send_password_message(uint8_t player_number) const;
-	void send_status_message(PlayerStatus status, uint8_t player_number) const; 
-	void send_key_message(char key, uint8_t player_number) const;
+	void send_status_message(Connection *c, PlayerStatus status, uint8_t player_number) const; 
+	void send_key_message(Connection *c, char key, uint8_t player_number) const;
 	bool recv_key_message(uint8_t player_number);
 };

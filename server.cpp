@@ -71,8 +71,8 @@ int main(int argc, char **argv) {
 			server.poll([&](Connection* c, Connection::Event evt) {
 				if (evt == Connection::OnOpen) {
 					//client connected:
-
-					uint8_t player = game.spawn_player();
+					printf("Spawning player.\n");
+					uint8_t player = game.spawn_player(c);
 					connection_to_player[c] = &game.players[player - 1];
 
 				} else if (evt == Connection::OnClose) {
@@ -89,12 +89,12 @@ int main(int argc, char **argv) {
 					assert(player != nullptr);
 
 					//handle messages from client:
+					printf("Receiving key!\n");
 					try {
 						bool handled_message = false;
-						do {
+						while (!handled_message) {
 							if (game.recv_key_message(player->number)) handled_message = true;
-							//TODO: extend for more message types as needed
-						} while (!handled_message);
+						}
 					} catch (std::exception const &e) {
 						std::cout << "Disconnecting client:" << e.what() << std::endl;
 						c->close();
