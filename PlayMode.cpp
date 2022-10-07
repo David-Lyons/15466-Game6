@@ -142,9 +142,11 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 }
 
 bool PlayMode::check_for_password(Connection* c) {
+	printf("Checking for password...\n");
 	assert(c);
 	auto& connection = *c;
 	auto& buffer = connection.recv_buffer;
+	std::cout << "The buffer size is " << std::to_string(buffer.size()) << "\n";
 	if (buffer.size() < 2) return false;
 	if (buffer[0] != uint8_t(Message::S2C_PASSWORD)) return false;
 	uint8_t size = buffer[1];
@@ -162,6 +164,7 @@ bool PlayMode::check_for_message(Connection *c) {
 	assert(c);
 	auto& connection = *c;
 	auto& buffer = connection.recv_buffer;
+	printf("Checking for message...\n");
 	if (buffer.size() < 3) return false;
 	if (buffer[0] == uint8_t(Message::S2C_KEY)) {
 		players[buffer[1] - 1].last_key = buffer[2];
@@ -213,17 +216,17 @@ void PlayMode::update(float elapsed) {
 		if (event == Connection::OnOpen) {
 			std::cout << "[" << c->socket << "] opened" << std::endl;
 		} else if (event == Connection::OnClose) {
-			std::cout << "[" << c->socket << "] closed (!)" << std::endl;
-			throw std::runtime_error("Lost connection to server!");
+			std::cout << "FATAL: Server has died.\n";
+			game_over = true;
 		} else { 
 			assert(event == Connection::OnRecv);
-			//std::cout << "[" << c->socket << "] recv'd data. Current buffer:\n" << hex_dump(c->recv_buffer); std::cout.flush(); //DEBUG
-			bool handled_message = false;
 			try {
-				while (!handled_message) {
+				bool handled_message;
+				do {
+					handled_message = false;
 					if (check_for_password(c)) handled_message = true;
 					if (check_for_message(c)) handled_message = true;
-				}
+				} while (handled_message);
 			} catch (std::exception const &e) {
 				std::cerr << "[" << c->socket << "] malformed message from server: " << e.what() << std::endl;
 				//quit the game:
@@ -234,15 +237,6 @@ void PlayMode::update(float elapsed) {
 }
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
-
-	static std::array< glm::vec2, 16 > const circle = [](){
-		std::array< glm::vec2, 16 > ret;
-		for (uint32_t a = 0; a < ret.size(); ++a) {
-			float ang = a / float(ret.size()) * 2.0f * float(M_PI);
-			ret[a] = glm::vec2(std::cos(ang), std::sin(ang));
-		}
-		return ret;
-	}();
 
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -264,7 +258,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				glm::u8vec4(0xFF, 0xFF, 0xFF, 0xFF));
 		};
 
-		draw_text(glm::vec2(-aspect + drawable_size.x / 3, drawable_size.y - (drawable_size.y / 8)), my_password, 0.1f);
+		draw_text(glm::vec2(-0.1f, 0.1f), my_password, 0.1f);
 
 		for (uint8_t i = 0; i < 8; i++) {
 			if (players[i].exists) {
@@ -274,7 +268,8 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				} else {
 					message += "Guessing...";
 				}
-				draw_text(glm::vec2(drawable_size.x / 10.0f, drawable_size.y / 16.0f + (drawable_size.y / 8.0f) * i), "Player " + std::to_string(i + 1), 0.1f);
+				message += " " + std::to_string(players[i].last_key);
+				draw_text(glm::vec2(-0.2f, -0.1f * i), message, 0.1f);
 			}
 		}
 	}

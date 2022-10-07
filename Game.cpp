@@ -61,17 +61,20 @@ uint8_t Game::spawn_player(Connection *c) {
 	player.connection = c;
 	player.password = passwords[rand() % 20];
 	player.progress = 0;
-	send_password_message(player_count);
+	std::cout << "Filling in the new player.";
 	for (auto& other_player : players) {
 		if (other_player.number != player_count && other_player.status != PlayerStatus::ABSENT) {
 			send_status_message(c, other_player.status, other_player.number);
 		}
 	}
+	std::cout << "Updating everyone on this new player.";
 	for (auto& other_player : players) {
 		if (other_player.status != PlayerStatus::ABSENT) {
 			send_status_message(other_player.connection, PlayerStatus::GUESSING, player_count);
 		}
 	}
+	std::cout << "Sending password.";
+	send_password_message(player_count);
 	return player_count;
 }
 
@@ -92,15 +95,14 @@ void Game::send_password_message(uint8_t player_number) const {
 	// Indicate the type of message
 	connection.send(Message::S2C_PASSWORD);
 	connection.send(uint8_t(length));
-	for (int i = 0; i < length; i++) {
-		connection.send(pass[i]);
+	for (size_t i = 0; i < length; i++) {
+		connection.send(uint8_t(pass[i]));
 	}
 }
 
 void Game::send_status_message(Connection *c, PlayerStatus status, uint8_t player_number) const {
 	assert(c);
 	auto& connection = *c;
-
 	// Indicate the type of message
 	connection.send(Message::S2C_STATUS);
 	// Say which player it's for
@@ -117,7 +119,7 @@ void Game::send_key_message(Connection *c, char key, uint8_t player_number) cons
 	// Say which player it's for
 	connection.send(player_number);
 	// Send the character
-	connection.send(key);
+	connection.send(uint8_t(key));
 }
 
 bool Game::recv_key_message(uint8_t player_number) {
@@ -142,7 +144,7 @@ bool Game::recv_key_message(uint8_t player_number) {
 
 	buffer.erase(buffer.begin(), buffer.begin() + 2);
 	if (player.status == PlayerStatus::SOLVED) {
-		return;
+		return true;
 	}
 
 	// Check if that guess was correct

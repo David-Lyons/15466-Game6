@@ -91,10 +91,11 @@ int main(int argc, char **argv) {
 					//handle messages from client:
 					printf("Receiving key!\n");
 					try {
-						bool handled_message = false;
-						while (!handled_message) {
+						bool handled_message;
+						do {
+							handled_message = false;
 							if (game.recv_key_message(player->number)) handled_message = true;
-						}
+						} while (handled_message);
 					} catch (std::exception const &e) {
 						std::cout << "Disconnecting client:" << e.what() << std::endl;
 						c->close();
