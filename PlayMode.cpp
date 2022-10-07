@@ -267,13 +267,13 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		glm::u8vec4 green = glm::u8vec4(0x00, 0xFF, 0x00, 0xFF);
 		
 		if (i_solved) {
-			draw_text(glm::vec2(-0.25f, 0.5f), my_password, 0.1f, green);
+			draw_text(glm::vec2(-0.15f, 0.5f), my_password, 0.1f, green);
 		} else {
-			draw_text(glm::vec2(-0.25f, 0.5f), my_password, 0.1f, white);
+			draw_text(glm::vec2(-0.15f, 0.5f), my_password, 0.1f, white);
 		}
 
 		if (game_over) {
-			draw_text(glm::vec2(-0.3f, 0.8f), "Everyone solved! Took " + std::to_string((int)time) + " seconds!", 0.1f, green);
+			draw_text(glm::vec2(-0.6f, 0.8f), "Everyone solved! Took " + std::to_string((int)time) + " seconds!", 0.1f, green);
 		}
 
 		for (uint8_t i = 0; i < 8; i++) {
@@ -285,7 +285,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					message += "Guessing...";
 				}
 				message += players[i].last_key;
-				draw_text(glm::vec2(-0.25f, 0.25f - 0.15f * i), message, 0.1f, white);
+				draw_text(glm::vec2(-0.3f, 0.25f - 0.15f * i), message, 0.1f, white);
 			}
 		}
 	}
