@@ -48,12 +48,16 @@ int main(int argc, char **argv) {
 	//keep track of game state:
 	Game game;
 	game.init();
+	auto start_time = std::chrono::steady_clock::now();
 
 	while (true) {
 		static auto next_tick = std::chrono::steady_clock::now() + std::chrono::duration< double >(Game::Tick);
 		//process incoming data from clients until a tick has elapsed:
 		while (true) {
 			auto now = std::chrono::steady_clock::now();
+			if (!game.game_over) {
+				game.game_time = std::chrono::duration<float>(now - start_time).count();
+			}
 			double remain = std::chrono::duration< double >(next_tick - now).count();
 			if (remain < 0.0) {
 				next_tick += std::chrono::duration< double >(Game::Tick);

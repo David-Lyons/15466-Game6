@@ -21,7 +21,7 @@ PlayMode::PlayMode(Client &client_) : client(client_) {
 	game_over = false;
 	found_password = false;
 	i_solved = false;
-	time = 0.0f;
+	time = 0;
 	my_password = "";
 }
 
@@ -151,10 +151,11 @@ bool PlayMode::check_for_solve(Connection* c) {
 		i_solved = true;
 		buffer.erase(buffer.begin(), buffer.begin() + 1);
 		return true;
-	} else if (buffer.size() >= 1 && buffer[0] == uint8_t(Message::S2C_GAMEOVER)) {
+	} else if (buffer.size() >= 5 && buffer[0] == uint8_t(Message::S2C_GAMEOVER)) {
 		i_solved = true;
 		game_over = true;
-		buffer.erase(buffer.begin(), buffer.begin() + 1);
+		time = buffer[1] | (buffer[2] << 8) | (buffer[3] << 16) | (buffer[4] << 24);
+		buffer.erase(buffer.begin(), buffer.begin() + 5);
 		return true;
 	}
 	return false;
@@ -167,7 +168,7 @@ bool PlayMode::check_for_password(Connection* c) {
 	if (buffer.size() < 2) return false;
 	if (buffer[0] != uint8_t(Message::S2C_PASSWORD)) return false;
 	uint8_t size = buffer[1];
-	if (buffer.size() < 2 + size) return false;
+	if (buffer.size() < uint8_t(2 + size)) return false;
 	for (uint8_t i = 2; i < uint8_t(2 + size); i++) {
 		my_password += buffer[i];
 	}
@@ -208,7 +209,6 @@ void PlayMode::update(float elapsed) {
 	if (game_over) {
 		return;
 	}
-	time += elapsed;
 	if (key_ready) {
 		client.connection.send(Message::C2S_KEY);
 		client.connection.send(my_key);

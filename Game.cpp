@@ -18,6 +18,7 @@ void Game::init() {
 		players[i].status = PlayerStatus::ABSENT;
 	}
 	game_over = false;
+	game_time = 0.0f;
 	passwords[0] = "APPLE";
 	passwords[1] = "DOG";
 	passwords[2] = "COMPUTER";
@@ -102,6 +103,11 @@ void Game::send_gameover_message(Connection* c) const {
 	assert(c);
 	auto& connection = *c;
 	connection.send(Message::S2C_GAMEOVER);
+	uint32_t final_time = uint32_t(game_time);
+	connection.send(uint8_t(final_time));
+	connection.send(uint8_t(final_time >> 8));
+	connection.send(uint8_t(final_time >> 16));
+	connection.send(uint8_t(final_time >> 24));
 }
 
 void Game::send_solve_message(Connection* c) const {

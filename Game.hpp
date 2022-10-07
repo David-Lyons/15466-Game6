@@ -45,6 +45,7 @@ struct Game {
 
 	std::array<std::string, 20> passwords;
 	bool game_over;
+	float game_time;
 
 	Game();
 	void init();
