@@ -15,11 +15,12 @@ PlayMode::PlayMode(Client &client_) : client(client_) {
 	for (uint8_t i = 0; i < 8; i++) {
 		players[i].solved = false;
 		players[i].exists = false;
-		players[i].last_key = ' ';
+		players[i].last_key = "";
 	}
 	key_ready = false;
 	game_over = false;
 	found_password = false;
+	i_solved = false;
 	my_password = "";
 }
 
@@ -141,22 +142,30 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 	return false;
 }
 
-bool PlayMode::check_for_password(Connection* c) {
-	printf("Checking for password...\n");
+bool PlayMode::check_for_solve(Connection* c) {
 	assert(c);
 	auto& connection = *c;
 	auto& buffer = connection.recv_buffer;
-	std::cout << "The buffer size is " << std::to_string(buffer.size()) << "\n";
+	if (buffer.size() >= 1 && buffer[0] == uint8_t(Message::S2C_SOLVE)) {
+		i_solved = true;
+		buffer.erase(buffer.begin(), buffer.begin() + 1);
+		return true;
+	}
+	return false;
+}
+
+bool PlayMode::check_for_password(Connection* c) {
+	assert(c);
+	auto& connection = *c;
+	auto& buffer = connection.recv_buffer;
 	if (buffer.size() < 2) return false;
 	if (buffer[0] != uint8_t(Message::S2C_PASSWORD)) return false;
 	uint8_t size = buffer[1];
-	std::cout << "Size is " << std::to_string(size) << "\n";
 	if (buffer.size() < 2 + size) return false;
-	for (uint8_t i = 2; i < 2 + size; i++) {
+	for (uint8_t i = 2; i < uint8_t(2 + size); i++) {
 		my_password += buffer[i];
 	}
 	buffer.erase(buffer.begin(), buffer.begin() + 2 + size);
-	std::cout << "Password is " << my_password << "\n";
 	return true;
 }
 
@@ -164,37 +173,37 @@ bool PlayMode::check_for_message(Connection *c) {
 	assert(c);
 	auto& connection = *c;
 	auto& buffer = connection.recv_buffer;
-	printf("Checking for message...\n");
 	if (buffer.size() < 3) return false;
 	if (buffer[0] == uint8_t(Message::S2C_KEY)) {
-		players[buffer[1] - 1].last_key = buffer[2];
+		if (players[buffer[1] - 1].last_key.length() == 0) {
+			players[buffer[1] - 1].last_key += buffer[2];
+		} else {
+			players[buffer[1] - 1].last_key[0] = buffer[2];
+		}
 		buffer.erase(buffer.begin(), buffer.begin() + 3);
 		return true;
 	} else if (buffer[0] == uint8_t(Message::S2C_STATUS)) {
 		if (buffer[2] == PlayerStatus::ABSENT) {
 			players[buffer[1] - 1].exists = false;
-			std::cout << "Player " << std::to_string(buffer[1]) << " has died.";
 		} else if (buffer[2] == PlayerStatus::GUESSING) {
 			players[buffer[1] - 1].exists = true;
 			players[buffer[1] - 1].solved = false;
-			std::cout << "Player " << std::to_string(buffer[1]) << " has joined!";
 		} else if (buffer[2] == PlayerStatus::SOLVED) {
 			players[buffer[1] - 1].exists = true;
 			players[buffer[1] - 1].solved = true;
-			std::cout << "Player " << std::to_string(buffer[1]) << " has guessed their password.";
 		}
 		buffer.erase(buffer.begin(), buffer.begin() + 3);
+		uint8_t player_count = 0;
+		uint8_t solve_count = 0;
 		for (uint8_t i = 0; i < 8; i++) {
-			uint8_t player_count = 0;
-			uint8_t solve_count = 0;
 			if (players[i].exists) {
 				player_count++;
 				if (players[i].solved) {
 					solve_count++;
 				}
 			}
-			if (player_count > 0 && player_count == solve_count) printf("We have a winner!\n");
 		}
+		if (player_count > 0 && player_count == solve_count) game_over = true;
 		return true;
 	}
 	return false;
@@ -226,6 +235,7 @@ void PlayMode::update(float elapsed) {
 					handled_message = false;
 					if (check_for_password(c)) handled_message = true;
 					if (check_for_message(c)) handled_message = true;
+					if (check_for_solve(c)) handled_message = true;
 				} while (handled_message);
 			} catch (std::exception const &e) {
 				std::cerr << "[" << c->socket << "] malformed message from server: " << e.what() << std::endl;
@@ -251,25 +261,36 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 
 	{
 		//helper:
-		auto draw_text = [&](glm::vec2 const &at, std::string const &text, float H) {
+		auto draw_text = [&](glm::vec2 const &at, std::string const &text, float H, glm::u8vec4 color) {
 			lines.draw_text(text,
 				glm::vec3(at.x, at.y, 0.0),
 				glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-				glm::u8vec4(0xFF, 0xFF, 0xFF, 0xFF));
+				color);
 		};
 
-		draw_text(glm::vec2(-0.1f, 0.1f), my_password, 0.1f);
+		glm::u8vec4 white = glm::u8vec4(0xFF, 0xFF, 0xFF, 0xFF);
+		glm::u8vec4 green = glm::u8vec4(0x00, 0xFF, 0x00, 0xFF);
+		
+		if (i_solved) {
+			draw_text(glm::vec2(-0.25f, 0.5f), my_password, 0.1f, green);
+		} else {
+			draw_text(glm::vec2(-0.25f, 0.5f), my_password, 0.1f, white);
+		}
+
+		if (game_over) {
+			draw_text(glm::vec2(-0.25f, 0.8f), "Everyone solved!", 0.1f, green);
+		}
 
 		for (uint8_t i = 0; i < 8; i++) {
 			if (players[i].exists) {
 				std::string message = "Player " + std::to_string(i + 1) + ": ";
 				if (players[i].solved) {
-					message += "Solved!";
+					message += "Solved! ";
 				} else {
 					message += "Guessing...";
 				}
-				message += " " + std::to_string(players[i].last_key);
-				draw_text(glm::vec2(-0.2f, -0.1f * i), message, 0.1f);
+				message += players[i].last_key;
+				draw_text(glm::vec2(-0.25f, 0.25f - 0.15f * i), message, 0.1f, white);
 			}
 		}
 	}

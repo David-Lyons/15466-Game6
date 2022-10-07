@@ -16,7 +16,8 @@ enum Message : uint8_t {
 	C2S_KEY,
 	S2C_KEY,
 	S2C_STATUS,
-	S2C_PASSWORD
+	S2C_PASSWORD,
+	S2C_SOLVE
 };
 
 enum PlayerStatus : uint8_t {
@@ -52,6 +53,7 @@ struct Game {
 
 	//---- communication helpers ----
 	void send_password_message(uint8_t player_number) const;
+	void send_solve_message(Connection* c) const;
 	void send_status_message(Connection *c, PlayerStatus status, uint8_t player_number) const; 
 	void send_key_message(Connection *c, char key, uint8_t player_number) const;
 	bool recv_key_message(uint8_t player_number);

@@ -17,11 +17,12 @@ struct PlayMode : Mode {
 	virtual void draw(glm::uvec2 const &drawable_size) override; 
 	bool check_for_message(Connection* c); 
 	bool check_for_password(Connection* c);
+	bool check_for_solve(Connection* c);
 
 	//----- game state -----
 
 	struct ClientPlayer {
-		char last_key;
+		std::string last_key;
 		bool exists;
 		bool solved;
 	};
@@ -30,6 +31,7 @@ struct PlayMode : Mode {
 	std::string my_password;
 	char my_key;
 	bool key_ready;
+	bool i_solved;
 	bool game_over;
 	bool found_password;
 

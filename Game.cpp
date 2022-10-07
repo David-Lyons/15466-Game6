@@ -50,7 +50,7 @@ uint8_t Game::spawn_player(Connection *c) {
 	for (char key = 'A'; key <= 'Z'; key++) {
 		player.scramble[key - 'A'] = key;
 	}
-	if (player_count % 2 == 0) {
+	if (rand() % 2 == 0) {
 		// This is a jumbled player
 		unsigned seed = rand();
 		std::shuffle(player.scramble.begin(), player.scramble.end(), std::default_random_engine(seed));
@@ -61,19 +61,16 @@ uint8_t Game::spawn_player(Connection *c) {
 	player.connection = c;
 	player.password = passwords[rand() % 20];
 	player.progress = 0;
-	std::cout << "Filling in the new player.";
 	for (auto& other_player : players) {
 		if (other_player.number != player_count && other_player.status != PlayerStatus::ABSENT) {
 			send_status_message(c, other_player.status, other_player.number);
 		}
 	}
-	std::cout << "Updating everyone on this new player.";
 	for (auto& other_player : players) {
 		if (other_player.status != PlayerStatus::ABSENT) {
 			send_status_message(other_player.connection, PlayerStatus::GUESSING, player_count);
 		}
 	}
-	std::cout << "Sending password.";
 	send_password_message(player_count);
 	return player_count;
 }
@@ -98,6 +95,12 @@ void Game::send_password_message(uint8_t player_number) const {
 	for (size_t i = 0; i < length; i++) {
 		connection.send(uint8_t(pass[i]));
 	}
+}
+
+void Game::send_solve_message(Connection* c) const {
+	assert(c);
+	auto& connection = *c;
+	connection.send(Message::S2C_SOLVE);
 }
 
 void Game::send_status_message(Connection *c, PlayerStatus status, uint8_t player_number) const {
@@ -135,7 +138,6 @@ bool Game::recv_key_message(uint8_t player_number) {
 	char guess = player.scramble[buffer[1] - 'A'];
 	// Tell everyone what was typed by who
 	// But don't tell the person who typed it!
-	std::cout << "Sending back " << guess << "\n";
 	for (auto& other_player : players) {
 		if (other_player.number != player_number && other_player.status != PlayerStatus::ABSENT) {
 			send_key_message(other_player.connection, guess, player_number);
@@ -153,6 +155,7 @@ bool Game::recv_key_message(uint8_t player_number) {
 		// Send solve message if necessary
 		if (player.progress == player.password.length()) {
 			player.status = PlayerStatus::SOLVED;
+			send_solve_message(player.connection);
 			for (auto& other_player : players) {
 				if (other_player.status != PlayerStatus::ABSENT) {
 					send_status_message(other_player.connection, PlayerStatus::SOLVED, player_number);

@@ -73,7 +73,11 @@ int main(int argc, char **argv) {
 					//client connected:
 					printf("Spawning player.\n");
 					uint8_t player = game.spawn_player(c);
-					connection_to_player[c] = &game.players[player - 1];
+					if (player != 0) {
+						connection_to_player[c] = &game.players[player - 1];
+					} else {
+						c->close();
+					}
 
 				} else if (evt == Connection::OnClose) {
 					//client disconnected:
@@ -89,7 +93,6 @@ int main(int argc, char **argv) {
 					assert(player != nullptr);
 
 					//handle messages from client:
-					printf("Receiving key!\n");
 					try {
 						bool handled_message;
 						do {
