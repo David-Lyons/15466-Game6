@@ -34,6 +34,7 @@ struct PlayMode : Mode {
 	bool i_solved;
 	bool game_over;
 	bool found_password;
+	float time;
 
 	//connection to server:
 	Client &client;

@@ -17,7 +17,8 @@ enum Message : uint8_t {
 	S2C_KEY,
 	S2C_STATUS,
 	S2C_PASSWORD,
-	S2C_SOLVE
+	S2C_SOLVE,
+	S2C_GAMEOVER
 };
 
 enum PlayerStatus : uint8_t {
@@ -43,6 +44,7 @@ struct Game {
 	void remove_player(uint8_t player_number); //remove player from game (may also, e.g., play some despawn anim)
 
 	std::array<std::string, 20> passwords;
+	bool game_over;
 
 	Game();
 	void init();
@@ -53,6 +55,7 @@ struct Game {
 
 	//---- communication helpers ----
 	void send_password_message(uint8_t player_number) const;
+	void send_gameover_message(Connection* c) const;
 	void send_solve_message(Connection* c) const;
 	void send_status_message(Connection *c, PlayerStatus status, uint8_t player_number) const; 
 	void send_key_message(Connection *c, char key, uint8_t player_number) const;

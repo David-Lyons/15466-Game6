@@ -21,6 +21,7 @@ PlayMode::PlayMode(Client &client_) : client(client_) {
 	game_over = false;
 	found_password = false;
 	i_solved = false;
+	time = 0.0f;
 	my_password = "";
 }
 
@@ -150,6 +151,11 @@ bool PlayMode::check_for_solve(Connection* c) {
 		i_solved = true;
 		buffer.erase(buffer.begin(), buffer.begin() + 1);
 		return true;
+	} else if (buffer.size() >= 1 && buffer[0] == uint8_t(Message::S2C_GAMEOVER)) {
+		i_solved = true;
+		game_over = true;
+		buffer.erase(buffer.begin(), buffer.begin() + 1);
+		return true;
 	}
 	return false;
 }
@@ -193,17 +199,6 @@ bool PlayMode::check_for_message(Connection *c) {
 			players[buffer[1] - 1].solved = true;
 		}
 		buffer.erase(buffer.begin(), buffer.begin() + 3);
-		uint8_t player_count = 0;
-		uint8_t solve_count = 0;
-		for (uint8_t i = 0; i < 8; i++) {
-			if (players[i].exists) {
-				player_count++;
-				if (players[i].solved) {
-					solve_count++;
-				}
-			}
-		}
-		if (player_count > 0 && player_count == solve_count) game_over = true;
 		return true;
 	}
 	return false;
@@ -213,8 +208,8 @@ void PlayMode::update(float elapsed) {
 	if (game_over) {
 		return;
 	}
+	time += elapsed;
 	if (key_ready) {
-		std::cout << "Sending " << my_key << "\n";
 		client.connection.send(Message::C2S_KEY);
 		client.connection.send(my_key);
 		key_ready = false;
@@ -278,7 +273,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		}
 
 		if (game_over) {
-			draw_text(glm::vec2(-0.25f, 0.8f), "Everyone solved!", 0.1f, green);
+			draw_text(glm::vec2(-0.3f, 0.8f), "Everyone solved! Took " + std::to_string((int)time) + " seconds!", 0.1f, green);
 		}
 
 		for (uint8_t i = 0; i < 8; i++) {

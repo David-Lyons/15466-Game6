@@ -17,6 +17,7 @@ void Game::init() {
 	for (uint8_t i = 0; i < 8; i++) {
 		players[i].status = PlayerStatus::ABSENT;
 	}
+	game_over = false;
 	passwords[0] = "APPLE";
 	passwords[1] = "DOG";
 	passwords[2] = "COMPUTER";
@@ -97,6 +98,12 @@ void Game::send_password_message(uint8_t player_number) const {
 	}
 }
 
+void Game::send_gameover_message(Connection* c) const {
+	assert(c);
+	auto& connection = *c;
+	connection.send(Message::S2C_GAMEOVER);
+}
+
 void Game::send_solve_message(Connection* c) const {
 	assert(c);
 	auto& connection = *c;
@@ -156,9 +163,21 @@ bool Game::recv_key_message(uint8_t player_number) {
 		if (player.progress == player.password.length()) {
 			player.status = PlayerStatus::SOLVED;
 			send_solve_message(player.connection);
+			bool temp_over = true;
 			for (auto& other_player : players) {
+				if (other_player.status == PlayerStatus::GUESSING) {
+					temp_over = false;
+				}
 				if (other_player.status != PlayerStatus::ABSENT) {
 					send_status_message(other_player.connection, PlayerStatus::SOLVED, player_number);
+				}
+			}
+			game_over = temp_over;
+			if (game_over) {
+				for (auto& other_player : players) {
+					if (other_player.status != PlayerStatus::ABSENT) {
+						send_gameover_message(other_player.connection);
+					}
 				}
 			}
 		}

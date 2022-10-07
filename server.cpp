@@ -71,8 +71,10 @@ int main(int argc, char **argv) {
 			server.poll([&](Connection* c, Connection::Event evt) {
 				if (evt == Connection::OnOpen) {
 					//client connected:
-					printf("Spawning player.\n");
 					uint8_t player = game.spawn_player(c);
+					if (game.game_over) {
+						c->close();
+					}
 					if (player != 0) {
 						connection_to_player[c] = &game.players[player - 1];
 					} else {
